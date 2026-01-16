@@ -1,0 +1,166 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  SUPER_ADMIN
+  TENANT_ADMIN
+  STAFF
+}
+
+model Tenant {
+  id         String     @id @default(uuid())
+  name       String
+  subdomain  String?    @unique
+  created_at DateTime   @default(now())
+  updated_at DateTime   @updatedAt
+  users      User[]
+  books      Book[]
+  authors    Author[]
+  categories Category[]
+  orders     Order[]
+  customers  Customer[]
+  inventory  Inventory[]
+  audit_logs AuditLog[]
+
+  @@map("tenants")
+}
+
+model User {
+  id         String   @id @default(uuid())
+  email      String   @unique
+  password   String
+  first_name String
+  last_name  String
+  role       Role     @default(STAFF)
+  tenant_id  String
+  tenant     Tenant   @relation(fields: [tenant_id], references: [id])
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+
+  @@index([tenant_id])
+  @@map("users")
+}
+
+model Book {
+  id          String      @id @default(uuid())
+  title       String
+  isbn        String?
+  price       Decimal     @db.Decimal(10, 2)
+  tenant_id   String
+  tenant      Tenant      @relation(fields: [tenant_id], references: [id])
+  author_id   String
+  author      Author      @relation(fields: [author_id], references: [id])
+  category_id String
+  category    Category    @relation(fields: [category_id], references: [id])
+  created_at  DateTime    @default(now())
+  updated_at  DateTime    @updatedAt
+  inventory   Inventory?
+  order_items OrderItem[]
+
+  @@index([tenant_id])
+  @@map("books")
+}
+
+model Author {
+  id         String   @id @default(uuid())
+  name       String
+  bio        String?
+  tenant_id  String
+  tenant     Tenant   @relation(fields: [tenant_id], references: [id])
+  books      Book[]
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+
+  @@index([tenant_id])
+  @@map("authors")
+}
+
+model Category {
+  id         String   @id @default(uuid())
+  name       String
+  tenant_id  String
+  tenant     Tenant   @relation(fields: [tenant_id], references: [id])
+  books      Book[]
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+
+  @@index([tenant_id])
+  @@map("categories")
+}
+
+model Inventory {
+  id         String   @id @default(uuid())
+  book_id    String   @unique
+  book       Book     @relation(fields: [book_id], references: [id])
+  quantity   Int      @default(0)
+  tenant_id  String
+  tenant     Tenant   @relation(fields: [tenant_id], references: [id])
+  updated_at DateTime @updatedAt
+
+  @@index([tenant_id])
+  @@map("inventory")
+}
+
+model Customer {
+  id         String   @id @default(uuid())
+  name       String
+  email      String
+  phone      String?
+  tenant_id  String
+  tenant     Tenant   @relation(fields: [tenant_id], references: [id])
+  orders     Order[]
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+
+  @@index([tenant_id])
+  @@map("customers")
+}
+
+model Order {
+  id          String      @id @default(uuid())
+  customer_id String
+  customer    Customer    @relation(fields: [customer_id], references: [id])
+  total_amount Decimal    @db.Decimal(10, 2)
+  status      String      @default("PENDING")
+  tenant_id   String
+  tenant      Tenant      @relation(fields: [tenant_id], references: [id])
+  items       OrderItem[]
+  created_at  DateTime    @default(now())
+  updated_at  DateTime    @updatedAt
+
+  @@index([tenant_id])
+  @@map("orders")
+}
+
+model OrderItem {
+  id         String  @id @default(uuid())
+  order_id   String
+  order      Order   @relation(fields: [order_id], references: [id])
+  book_id    String
+  book       Book    @relation(fields: [book_id], references: [id])
+  quantity   Int
+  unit_price Decimal @db.Decimal(10, 2)
+
+  @@map("order_items")
+}
+
+model AuditLog {
+  id         String   @id @default(uuid())
+  action     String
+  entity     String
+  entity_id  String
+  user_id    String
+  tenant_id  String
+  tenant     Tenant   @relation(fields: [tenant_id], references: [id])
+  details    Json?
+  created_at DateTime @default(now())
+
+  @@index([tenant_id])
+  @@map("audit_logs")
+}
